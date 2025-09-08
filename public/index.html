@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Customer Support Chat - POC</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .chat-container {
+            width: 400px;
+            height: 600px;
+            max-height: 90vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        @media (max-width: 480px) {
+            .chat-container {
+                width: 95vw;
+                height: 90vh;
+                border-radius: 10px;
+            }
+        }
+        
+        .chat-header {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .chat-header h1 {
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+        
+        .chat-header p {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        .status {
+            padding: 10px;
+            background: #f8f9fa;
+            font-size: 12px;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: #f8f9fa;
+            height: 0; /* Important: forces flexbox to calculate proper height */
+            scroll-behavior: smooth;
+        }
+        
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            max-width: 80%;
+        }
+        
+        .message.user {
+            margin-left: auto;
+        }
+        
+        .message.bot {
+            margin-right: auto;
+        }
+        
+        .message-content {
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+        
+        .message.user .message-content {
+            background: #667eea;
+            color: white;
+        }
+        
+        .message.bot .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e9ecef;
+        }
+        
+        .message.escalation .message-content {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .message-time {
+            font-size: 10px;
+            opacity: 0.6;
+            margin-top: 5px;
+            text-align: right;
+        }
+        
+        .message.bot .message-time {
+            text-align: left;
+        }
+        
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .input-group input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #e9ecef;
+            border-radius: 25px;
+            outline: none;
+            font-size: 14px;
+        }
+        
+        .input-group input:focus {
+            border-color: #667eea;
+        }
+        
+        .input-group button {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        
+        .input-group button:hover {
+            background: #5a6fd8;
+        }
+        
+        .input-group button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .login-form {
+            padding: 30px 20px;
+            text-align: center;
+        }
+        
+        .login-form input {
+            width: 100%;
+            padding: 12px 16px;
+            margin: 10px 0;
+            border: 1px solid #e9ecef;
+            border-radius: 25px;
+            outline: none;
+            font-size: 14px;
+        }
+        
+        .login-form button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        .chat-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 0; /* Important for flexbox scrolling */
+        }
+        
+        .chat-section.hidden {
+            display: none;
+        }
+        
+        .scroll-to-bottom {
+            position: absolute;
+            right: 30px;
+            bottom: 80px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+        
+        .scroll-to-bottom:hover {
+            background: #5a6fd8;
+        }
+        
+        .scroll-to-bottom.show {
+            display: flex;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>AI Customer Support</h1>
+            <p>Powered by OpenAI GPT</p>
+        </div>
+        
+        <div id="status" class="status disconnected">
+            Disconnected
+        </div>
+        
+        <div id="loginSection" class="login-form">
+            <input type="text" id="userIdInput" placeholder="Enter your User ID" value="user123">
+            <button onclick="startChat()">Start Chat</button>
+        </div>
+        
+        <div id="chatSection" class="chat-section" style="display: none;">
+            <div id="messages" class="chat-messages"></div>
+            <button id="scrollToBottom" class="scroll-to-bottom" onclick="scrollToBottom()" title="Scroll to bottom">
+                ↓
+            </button>
+            <div class="chat-input">
+                <div class="input-group">
+                    <input type="text" id="messageInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+                    <button onclick="sendMessage()" id="sendButton">Send</button>
+                </div>
+            </div>
+        </div>
+        
+        <button class="scroll-to-bottom" id="scrollToBottomBtn" title="Scroll to bottom">
+            ⬇️
+        </button>
+    </div>
+
+    <script>
+        let socket;
+        let currentSessionId;
+        let currentUserId;
+        
+        function updateStatus(message, isConnected) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${isConnected ? 'connected' : 'disconnected'}`;
+        }
+        
+        function startChat() {
+            const userId = document.getElementById('userIdInput').value.trim();
+            if (!userId) {
+                alert('Please enter a User ID');
+                return;
+            }
+            
+            currentUserId = userId;
+            
+            // Connect to WebSocket
+            socket = io('http://localhost:3000');
+            
+            socket.on('connect', () => {
+                updateStatus('Connected', true);
+                
+                // Join chat session
+                socket.emit('join-chat', { userId: currentUserId });
+            });
+            
+            socket.on('chat-joined', (data) => {
+                currentSessionId = data.sessionId;
+                updateStatus(`Connected - Session: ${currentSessionId.substring(0, 8)}...`, true);
+                
+                // Show chat interface
+                document.getElementById('loginSection').style.display = 'none';
+                const chatSection = document.getElementById('chatSection');
+                chatSection.style.display = 'flex';
+                chatSection.classList.remove('hidden');
+                
+                // Initialize scroll listener
+                initializeScrollListener();
+                
+                // Add welcome message
+                addMessage('Welcome! I\'m your AI customer support assistant. How can I help you today?', 'bot');
+                
+                // Initialize scroll listener
+                initializeScrollListener();
+            });
+            
+            socket.on('message-received', (data) => {
+                addMessage(data.message, 'bot', data.needsEscalation, data.provider);
+                
+                if (data.needsEscalation) {
+                    addMessage('🚨 This conversation has been flagged for human escalation.', 'escalation');
+                }
+            });
+            
+            socket.on('escalation-needed', (data) => {
+                addMessage('⚠️ Support team has been notified of escalation request.', 'escalation');
+            });
+            
+            socket.on('disconnect', () => {
+                updateStatus('Disconnected', false);
+            });
+            
+            socket.on('error', (data) => {
+                addMessage(`Error: ${data.message}`, 'bot');
+            });
+        }
+        
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (!message || !socket || !currentSessionId) return;
+            
+            // Add user message to chat
+            addMessage(message, 'user');
+            
+            // Send to server
+            socket.emit('send-message', {
+                sessionId: currentSessionId,
+                message: message,
+                userId: currentUserId
+            });
+            
+            // Clear input
+            messageInput.value = '';
+        }
+        
+        function addMessage(content, type, isEscalation = false, provider = null) {
+            const messagesContainer = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            
+            // Check if user was at bottom before adding message
+            const wasAtBottom = messagesContainer.scrollHeight - messagesContainer.clientHeight <= messagesContainer.scrollTop + 1;
+            
+            messageDiv.className = `message ${type}`;
+            if (isEscalation) messageDiv.className += ' escalation';
+            
+            let providerBadge = '';
+            if (provider && type === 'bot') {
+                const providerColor = provider === 'openai' ? '#10a37f' : '#4285f4';
+                providerBadge = `<span style="background: ${providerColor}; color: white; font-size: 10px; padding: 2px 6px; border-radius: 8px; margin-left: 8px;">${provider.toUpperCase()}</span>`;
+            }
+            
+            messageDiv.innerHTML = `
+                <div class="message-content">${content}${providerBadge}</div>
+                <div class="message-time">${new Date().toLocaleTimeString()}</div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            
+            // Only auto-scroll if user was at bottom, or if it's a user message
+            if (wasAtBottom || type === 'user') {
+                setTimeout(() => {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    checkScrollPosition();
+                }, 50);
+            } else {
+                checkScrollPosition();
+            }
+        }
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        function scrollToBottom() {
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            document.getElementById('scrollToBottom').classList.remove('show');
+        }
+        
+        function checkScrollPosition() {
+            const messagesContainer = document.getElementById('messages');
+            const scrollButton = document.getElementById('scrollToBottom');
+            
+            if (messagesContainer) {
+                const isScrolledToBottom = messagesContainer.scrollHeight - messagesContainer.clientHeight <= messagesContainer.scrollTop + 1;
+                
+                if (isScrolledToBottom) {
+                    scrollButton.classList.remove('show');
+                } else {
+                    scrollButton.classList.add('show');
+                }
+            }
+        }
+        
+        // Add scroll event listener when chat is initialized
+        function initializeScrollListener() {
+            const messagesContainer = document.getElementById('messages');
+            if (messagesContainer) {
+                messagesContainer.addEventListener('scroll', checkScrollPosition);
+            }
+        }
+        
+        // Initialize
+        updateStatus('Ready to connect', false);
+    </script>
+</body>
+</html>

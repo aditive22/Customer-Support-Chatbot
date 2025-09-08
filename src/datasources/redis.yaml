@@ -1,0 +1,6 @@
+type: redis
+host: <%config.redis.host || 'localhost'%>
+port: <%config.redis.port || 6379%>
+<%if config.redis.password%>
+password: <%config.redis.password%>
+<%endif%>

@@ -1,0 +1,18 @@
+summary: Health check endpoint
+description: Check if the service is running properly
+http:
+  method: GET
+  endpoint: /health
+responses:
+  200:
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            timestamp:
+              type: string
+            services:
+              type: object

@@ -1,0 +1,29 @@
+summary: Get chat history
+description: Retrieve conversation history for a session
+http:
+  method: GET
+  endpoint: /chat/history/{sessionId}
+params:
+  sessionId:
+    type: string
+    description: Session identifier
+responses:
+  200:
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            history:
+              type: array
+              items:
+                type: object
+                properties:
+                  role:
+                    type: string
+                  content:
+                    type: string
+                  timestamp:
+                    type: string

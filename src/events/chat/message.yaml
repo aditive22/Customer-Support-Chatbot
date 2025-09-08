@@ -1,0 +1,36 @@
+summary: Send a message in chat
+description: Send a message and get AI response
+http:
+  method: POST
+  endpoint: /chat/message
+body:
+  type: object
+  properties:
+    sessionId:
+      type: string
+      description: Session identifier
+    message:
+      type: string
+      description: User message
+    userId:
+      type: string
+      description: User identifier
+  required:
+    - sessionId
+    - message
+    - userId
+responses:
+  200:
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            response:
+              type: string
+            needsEscalation:
+              type: boolean
+            timestamp:
+              type: string

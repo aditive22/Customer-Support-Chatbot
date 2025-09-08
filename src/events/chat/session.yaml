@@ -1,0 +1,29 @@
+summary: Start a new chat session
+description: Initialize a new chat session for a user
+http:
+  method: POST
+  endpoint: /chat/session
+body:
+  type: object
+  properties:
+    userId:
+      type: string
+      description: Unique identifier for the user
+    metadata:
+      type: object
+      description: Additional session metadata
+  required:
+    - userId
+responses:
+  200:
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            sessionId:
+              type: string
+            message:
+              type: string

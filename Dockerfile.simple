@@ -1,0 +1,20 @@
+# Simple Dockerfile that runs TypeScript directly
+FROM node:18-alpine
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+# Set working directory
+WORKDIR /app
+
+# Copy everything
+COPY . .
+
+# Install dependencies
+RUN npm install
+
+# Expose port
+EXPOSE 3001
+
+# Start with ts-node
+CMD ["npm", "run", "dev"]
